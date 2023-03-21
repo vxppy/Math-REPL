@@ -487,10 +487,10 @@ const parse = (tokens) => {
                         col: toke.col,
                         length: toke.length,
                         type: 'operand',
-                        value: parse(toke.body),
+                        value: parse(toke.body).value,
                         inbuilt: false
                     }
-                    return { type: 'operand', value: `'${toke.value}' is not set to '${memory[toke.value].value.value}'` }
+                    return { type: 'operand', value: `'${toke.value}' is not set to '${memory[toke.value].value}'` }
                 }
                 return val
             }
