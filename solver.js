@@ -497,9 +497,9 @@ const parse = (tokens) => {
         } else {
             if (toke.type == 'variable') {
                 if (memory[toke.value]) {
-                    stk.push(memory[toke.value].value)
+                    stk.push(memory[toke.value])
                 } else if (inbuilt[toke.value]) {
-                    stk.push(inbuilt[toke.value].value)
+                    stk.push(inbuilt[toke.value])
                 } else {
                     toke.type = 'Reference Error'
                     toke.reason = `\'${toke.value}\' isn't defined`
