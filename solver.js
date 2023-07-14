@@ -10,6 +10,21 @@ const perc = {
     '_-': 3
 }
 
+
+let callStack = []
+
+Array.prototype.upush = function (item) {
+    for (let i = 0; i < this.length; i++) {
+        if (this[i].value == item.value) {
+            item.type = 'Recusion Error'
+            item.reason = 'Indirect recusion detected'
+            return { type: 'error', value: item }
+        }
+    }
+    this.push(item)
+}
+
+
 /**
  * @type { { [x: string]: (({type: 'function', value: (...args: Operand[]) => Operand, inbuilt: true }) | ({type: 'function', args: { name: string, default?: Operand }[] , value: Expresssion, inbuilt: false}) | Operand ) } }
  */
@@ -143,6 +158,13 @@ const postfix = (tokens) => {
                     return { type: 'error', value: toke }
                 }
                 f.body = postfix(l)
+                for (let j = 0; j < f.body.length; j++) {
+                    if (f.body[j].type == 'call' && f.body[j].name.value == f.name.value) {
+                        f.body[j].name.type = 'Recusion Error'
+                        f.body[j].name.reason = 'Function called itself in the definition'
+                        return { type: 'error', value: f.body[j].name }
+                    }
+                }
                 return [f]
             } else {
                 toke.type = 'Syntax Error'
@@ -237,6 +259,7 @@ const parse_calls = (call) => {
     if (!memory[call.name.value] && !inbuilt[call.name.value]) {
         call.nametype = 'Reference Error'
         call.name.reason = `\'${call.name.value}\' isn't defined`
+        callStack = []
         return { type: 'error', value: call.name }
     }
 
@@ -244,15 +267,24 @@ const parse_calls = (call) => {
         if (memory[call.name.value].type != 'function') {
             call.nametype = 'Reference Error'
             call.name.reason = `\'${call.name.value}\' isn't a function`
+            callStack = []
             return { type: 'error', value: call.name }
+        }
+
+        let v = callStack.upush(call.name)
+        if (v) {
+            callStack = []
+            return v
         }
 
         if (memory[call.name.value].inbuilt) {
             let args = []
-
             for (let i = 0; i < call.args.length; i++) {
                 let v = parse(call.args[i])
-                if (v.type == 'error') return v
+                if (v.type == 'error') {
+                    callStack = []
+                    return v
+                }
 
                 args.push(v)
             }
@@ -261,7 +293,10 @@ const parse_calls = (call) => {
             let args = {}
             for (let i = 0; i < call.args.length; i++) {
                 let v = parse(call.args[i])
-                if (v.type == 'error') return v
+                if (v.type == 'error') {
+                    callStack = []
+                    return v
+                }
 
                 args[memory[call.name.value].args[i].name] = v
             }
@@ -279,6 +314,7 @@ const parse_calls = (call) => {
                                 if (toke.type == 'function') {
                                     toke.type = 'Type Error'
                                     toke.reason = `Variable '${clone.args[i].name}' is a function`
+                                    callStack = []
                                     return { type: 'error', value: toke }
                                 }
                                 args[clone.args[i].name] = toke.value
@@ -286,12 +322,14 @@ const parse_calls = (call) => {
                                 let toke = clone.args[i]
                                 toke.type = 'Reference Error'
                                 toke.reason = `Variable '${clone.args[i].name}' is not defined`
+                                callStack = []
                                 return { type: 'error', value: toke }
                             }
                         }
                     }
                 }
             }
+
             for (let i = 0; i < clone.value.length; i++) {
                 if (clone.value[i].type == 'variable') {
                     if (args[clone.value[i].value]) {
@@ -302,18 +340,28 @@ const parse_calls = (call) => {
                         toke.length = call.length
                         toke.type = 'Reference Error'
                         toke.reason = `Variable '${clone.value[i].value}' is not defined`
+                        callStack = []
                         return { type: 'error', value: toke }
                     }
                 }
             }
 
-            return parse(clone.value)
+            let r = parse(clone.value)
+            callStack.pop()
+            return r
         }
     } else {
         if (inbuilt[call.name.value].type != 'function') {
             call.nametype = 'Reference Error'
             call.name.reason = `\'${call.name.value}\' isn't a function`
+            callStack = []
             return { type: 'error', value: call.name }
+        }
+
+        let v = callStack.upush(call.name)
+        if (v) {
+            callStack = []
+            return v
         }
 
         if (inbuilt[call.name.value].inbuilt) {
@@ -321,11 +369,17 @@ const parse_calls = (call) => {
 
             for (let i = 0; i < call.args.length; i++) {
                 let v = parse(call.args[i])
-                if (v.type == 'error') return v
+                if (v.type == 'error') {
+                    callStack = []
+                    return v
+                }
 
                 args.push(v)
             }
-            return inbuilt[call.name.value].value(...args)
+
+            let r = inbuilt[call.name.value].value(...args)
+            callStack.pop()
+            return r
         }
     }
 }
@@ -367,6 +421,7 @@ const validate_expr = (tokens) => {
  * @returns { ErrorToken | Operand }
  */
 const parse = (tokens) => {
+    // console.log(tokens)
     /**
      * @type { (Operand | Call)[] }
      */
@@ -490,7 +545,7 @@ const parse = (tokens) => {
                         value: parse(toke.body).value,
                         inbuilt: false
                     }
-                    return { type: 'operand', value: `'${toke.value}' is not set to '${memory[toke.value].value}'` }
+                    return { type: 'operand', value: `'${toke.value}' is now set to '${memory[toke.value].value}'` }
                 }
                 return val
             }
